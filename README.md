@@ -268,3 +268,10 @@ Model.Extension.SelectByID2(
 5. dopiero wtedy wykonuje `IFeatureManager.InsertCutBlend`.
 
 Nie ma fallbacku Booleanowego.
+
+Jeżeli dana wersja SOLIDWORKS odrzuci pełny zamknięty loft (mimo poprawnej
+selekcji profili), generator automatycznie dzieli tę samą pętlę 360° na
+odcinki do 45°. Sąsiednie odcinki współdzielą profil graniczny, a ostatni
+kończy się jawnym profilem 360° pokrywającym się z profilem 0°. Każdy odcinek
+jest nadal natywnym `Lofted Cut`; mechanizm naprawczy nie tworzy brył
+narzędziowych i nie wykonuje operacji Boolean.
