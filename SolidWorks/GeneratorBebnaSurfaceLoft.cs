@@ -29,6 +29,8 @@ namespace GeneratorBebnaKrzywkowego.SolidWorks
     {
         private const double MmNaM = 0.001;
         private const double MaksymalnyZakresLoftuSegmentowegoStopnie = 45.0;
+        private const double KrokSzukaniaPrzeciecStopnie = 0.25;
+        private const double TolerancjaPromieniowaMm = 1e-5;
 
         private readonly SesjaSolidWorks _sesja;
         private readonly KonfiguracjaGeneratora _k;
@@ -218,53 +220,217 @@ namespace GeneratorBebnaKrzywkowego.SolidWorks
                 profile.Count != katyStopnie.Count || profile.Count < 2)
                 return false;
 
-            int poczatek = 0;
-            int numerSegmentu = 0;
-
-            while (poczatek < profile.Count - 1)
-            {
-                int koniec = poczatek + 1;
-                while (koniec + 1 < profile.Count &&
-                       katyStopnie[koniec + 1] - katyStopnie[poczatek] <=
-                       MaksymalnyZakresLoftuSegmentowegoStopnie + 1e-9)
+            List<ProfilKatowy> profileKatowe = profile
+                .Select((profil, indeks) => new ProfilKatowy
                 {
-                    koniec++;
+                    KatStopnie = katyStopnie[indeks],
+                    Profil = profil
+                })
+                .ToList();
+
+            List<double> granice = ZnajdzGranicePrzecieciaObwiedni(
+                przesunieciePoSzerokosciMm);
+            if (granice.Count > 0)
+            {
+                Console.WriteLine(
+                    "    Punkty wejścia/wyjścia obwiedni przez walec: " +
+                    string.Join("°, ", granice.Select(Formatuj)) + "°.");
+                double odsuniecie = ObliczOdsuniecieProfiliGranicznych(katyStopnie);
+                var dodatkoweKaty = new List<double>();
+                foreach (double granica in granice)
+                {
+                    DodajKatJesliNowy(dodatkoweKaty, granica - odsuniecie, profileKatowe);
+                    DodajKatJesliNowy(dodatkoweKaty, granica, profileKatowe);
+                    DodajKatJesliNowy(dodatkoweKaty, granica + odsuniecie, profileKatowe);
                 }
 
-                numerSegmentu++;
-                List<Feature> segment = profile
-                    .Skip(poczatek)
-                    .Take(koniec - poczatek + 1)
-                    .ToList();
+                if (dodatkoweKaty.Count > 0)
+                {
+                    List<Feature> dodatkoweProfile = UtworzProfileWOddzielnychSzkicach3D(
+                        przesunieciePoSzerokosciMm,
+                        nazwa + "_GRANICA",
+                        dodatkoweKaty);
+                    profileKatowe.AddRange(dodatkoweKaty.Select((kat, indeks) =>
+                        new ProfilKatowy { KatStopnie = kat, Profil = dodatkoweProfile[indeks] }));
+                    profileKatowe = profileKatowe.OrderBy(x => x.KatStopnie).ToList();
+                }
+            }
 
-                string nazwaSegmentu = nazwa + "_SEGMENT_" +
-                    numerSegmentu.ToString("00");
+            List<StanProfilu> stany = profileKatowe
+                .Select(x => OkreslStanProfilu(x.KatStopnie, przesunieciePoSzerokosciMm))
+                .ToList();
+            List<ZakresIndeksow> zakresy = ZbudujZakresyPrzecinajace(stany);
+
+            Console.WriteLine(
+                "    Klasyfikacja obwiedni: wewnątrz=" +
+                stany.Count(x => x == StanProfilu.Wewnatrz) + ", przecina=" +
+                stany.Count(x => x == StanProfilu.Przecina) + ", na zewnątrz=" +
+                stany.Count(x => x == StanProfilu.NaZewnatrz) + ".");
+
+            if (zakresy.Count == 0)
+            {
+                if (stany.All(x => x == StanProfilu.NaZewnatrz))
+                {
+                    Console.WriteLine("    Obwiednia nie przecina bębna; pominięto Lofted Cut.");
+                    return true;
+                }
 
                 Console.WriteLine(
-                    "    Segment " + numerSegmentu + ": " +
-                    katyStopnie[poczatek].ToString("0.###", CultureInfo.InvariantCulture) +
-                    "° -> " +
-                    katyStopnie[koniec].ToString("0.###", CultureInfo.InvariantCulture) + "°");
+                    "    Obwiednia jest całkowicie wewnętrzna. Zamknięty Lofted Cut " +
+                    "został wcześniej odrzucony, więc nie tworzę niezweryfikowanej " +
+                    "wewnętrznej wnęki segmentowej.");
+                return false;
+            }
 
-                DiagnostykaSegmentu diagnostyka = WypiszDiagnostykeSegmentu(
-                    katyStopnie,
-                    poczatek,
-                    koniec,
-                    przesunieciePoSzerokosciMm);
+            int numerSegmentu = 0;
+            foreach (ZakresIndeksow zakres in zakresy)
+            {
+                int poczatek = zakres.Poczatek;
+                while (poczatek < zakres.Koniec)
+                {
+                    int koniec = poczatek + 1;
+                    while (koniec + 1 <= zakres.Koniec &&
+                       profileKatowe[koniec + 1].KatStopnie - profileKatowe[poczatek].KatStopnie <=
+                       MaksymalnyZakresLoftuSegmentowegoStopnie + 1e-9)
+                        koniec++;
 
-                if (!SprobujUtworzycLoftCut(
-                        segment,
-                        false,
-                        nazwaSegmentu,
-                        diagnostyka))
-                    return false;
+                    numerSegmentu++;
+                    List<Feature> segment = profileKatowe
+                        .Skip(poczatek)
+                        .Take(koniec - poczatek + 1)
+                        .Select(x => x.Profil)
+                        .ToList();
 
-                // Wspólny profil sąsiednich segmentów eliminuje szczelinę
-                // na granicy dwóch operacji.
-                poczatek = koniec;
+                    string nazwaSegmentu = nazwa + "_SEGMENT_" +
+                        numerSegmentu.ToString("00");
+
+                    Console.WriteLine(
+                        "    Segment " + numerSegmentu + ": " +
+                        profileKatowe[poczatek].KatStopnie.ToString("0.###", CultureInfo.InvariantCulture) +
+                        "° -> " +
+                        profileKatowe[koniec].KatStopnie.ToString("0.###", CultureInfo.InvariantCulture) + "°");
+
+                    DiagnostykaSegmentu diagnostyka = WypiszDiagnostykeSegmentu(
+                        profileKatowe.Select(x => x.KatStopnie).ToList(),
+                        poczatek,
+                        koniec,
+                        przesunieciePoSzerokosciMm);
+
+                    if (!SprobujUtworzycLoftCut(
+                            segment,
+                            false,
+                            nazwaSegmentu,
+                            diagnostyka))
+                        return false;
+
+                    // Wspólny profil sąsiednich segmentów eliminuje szczelinę
+                    // na granicy dwóch operacji.
+                    poczatek = koniec;
+                }
             }
 
             return true;
+        }
+
+        private List<double> ZnajdzGranicePrzecieciaObwiedni(double przesuniecieMm)
+        {
+            var wynik = new List<double>();
+            double poprzedniKat = 0.0;
+            DiagnostykaProfilu poprzedni = ObliczDiagnostykeProfilu(0.0, przesuniecieMm);
+
+            for (double kat = KrokSzukaniaPrzeciecStopnie;
+                 kat <= 360.0 + 1e-9;
+                 kat += KrokSzukaniaPrzeciecStopnie)
+            {
+                double biezacyKat = Math.Min(kat, 360.0);
+                DiagnostykaProfilu biezacy = ObliczDiagnostykeProfilu(biezacyKat, przesuniecieMm);
+                DodajGraniceDlaFunkcji(wynik, poprzedniKat, biezacyKat,
+                    poprzedni.MaksymalnaOdlegloscMm - _k.PromienBebnaMm,
+                    biezacy.MaksymalnaOdlegloscMm - _k.PromienBebnaMm,
+                    przesuniecieMm, true);
+                DodajGraniceDlaFunkcji(wynik, poprzedniKat, biezacyKat,
+                    poprzedni.MinimalnaOdlegloscMm - _k.PromienBebnaMm,
+                    biezacy.MinimalnaOdlegloscMm - _k.PromienBebnaMm,
+                    przesuniecieMm, false);
+                poprzedniKat = biezacyKat;
+                poprzedni = biezacy;
+            }
+
+            return wynik.Where(x => x > 1e-7 && x < 360.0 - 1e-7)
+                .Distinct(new KatComparer(1e-5)).OrderBy(x => x).ToList();
+        }
+
+        private void DodajGraniceDlaFunkcji(List<double> wynik, double lewy, double prawy,
+            double wartoscLewa, double wartoscPrawa, double przesuniecieMm, bool maksimum)
+        {
+            if (wartoscLewa * wartoscPrawa > 0.0)
+                return;
+
+            for (int i = 0; i < 32; i++)
+            {
+                double srodek = (lewy + prawy) / 2.0;
+                DiagnostykaProfilu d = ObliczDiagnostykeProfilu(srodek, przesuniecieMm);
+                double wartosc = (maksimum ? d.MaksymalnaOdlegloscMm : d.MinimalnaOdlegloscMm)
+                    - _k.PromienBebnaMm;
+                if (wartoscLewa * wartosc <= 0.0)
+                {
+                    prawy = srodek;
+                    wartoscPrawa = wartosc;
+                }
+                else
+                {
+                    lewy = srodek;
+                    wartoscLewa = wartosc;
+                }
+            }
+            wynik.Add((lewy + prawy) / 2.0);
+        }
+
+        private StanProfilu OkreslStanProfilu(double kat, double przesuniecieMm)
+        {
+            DiagnostykaProfilu d = ObliczDiagnostykeProfilu(kat, przesuniecieMm);
+            if (d.MaksymalnaOdlegloscMm < _k.PromienBebnaMm - TolerancjaPromieniowaMm)
+                return StanProfilu.Wewnatrz;
+            if (d.MinimalnaOdlegloscMm > _k.PromienBebnaMm + TolerancjaPromieniowaMm)
+                return StanProfilu.NaZewnatrz;
+            return StanProfilu.Przecina;
+        }
+
+        private static List<ZakresIndeksow> ZbudujZakresyPrzecinajace(IReadOnlyList<StanProfilu> stany)
+        {
+            var wynik = new List<ZakresIndeksow>();
+            int i = 0;
+            while (i < stany.Count)
+            {
+                if (stany[i] != StanProfilu.Przecina) { i++; continue; }
+                int poczatekPrzeciecia = i;
+                while (i + 1 < stany.Count && stany[i + 1] == StanProfilu.Przecina) i++;
+                int koniecPrzeciecia = i;
+                wynik.Add(new ZakresIndeksow
+                {
+                    Poczatek = Math.Max(0, poczatekPrzeciecia - 1),
+                    Koniec = Math.Min(stany.Count - 1, koniecPrzeciecia + 1)
+                });
+                i++;
+            }
+            return wynik;
+        }
+
+        private static double ObliczOdsuniecieProfiliGranicznych(IReadOnlyList<double> katy)
+        {
+            double minKrok = katy.Zip(katy.Skip(1), (a, b) => b - a)
+                .Where(x => x > 1e-9).DefaultIfEmpty(1.0).Min();
+            return Math.Min(0.1, minKrok / 4.0);
+        }
+
+        private static void DodajKatJesliNowy(List<double> wynik, double kat,
+            IReadOnlyList<ProfilKatowy> istniejace)
+        {
+            if (kat <= 0.0 || kat >= 360.0 ||
+                istniejace.Any(x => Math.Abs(x.KatStopnie - kat) < 1e-7) ||
+                wynik.Any(x => Math.Abs(x - kat) < 1e-7))
+                return;
+            wynik.Add(kat);
         }
 
         /*
@@ -713,6 +879,38 @@ namespace GeneratorBebnaKrzywkowego.SolidWorks
             public double MinimalnaOdlegloscMm { get; set; }
             public double MaksymalnaOdlegloscMm { get; set; }
             public bool MozePrzeciacWalec { get; set; }
+        }
+
+        private enum StanProfilu
+        {
+            Wewnatrz,
+            Przecina,
+            NaZewnatrz
+        }
+
+        private sealed class ProfilKatowy
+        {
+            public double KatStopnie { get; set; }
+            public Feature Profil { get; set; }
+        }
+
+        private sealed class ZakresIndeksow
+        {
+            public int Poczatek { get; set; }
+            public int Koniec { get; set; }
+        }
+
+        private sealed class KatComparer : IEqualityComparer<double>
+        {
+            private readonly double _tolerancja;
+
+            public KatComparer(double tolerancja)
+            {
+                _tolerancja = tolerancja;
+            }
+
+            public bool Equals(double x, double y) => Math.Abs(x - y) <= _tolerancja;
+            public int GetHashCode(double obj) => 0;
         }
 
         private bool UtworzOtworCentralnyLoftem()
