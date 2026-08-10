@@ -18,8 +18,8 @@ bęben:
 ramię:
   długość_mm: 46.4
   oś_zawiasu_od_górnej_krawędzi_mm: 19.1
-  kąt_początkowy_deg: 180
-  kąt_końcowy_deg: 270
+  kąt_zamknięcia_deg: 270 # dolne położenie łożyska, ramię skierowane w dół
+  kąt_otwarcia_deg: 180   # górne położenie łożyska
 
 krzywka:
   wznos_deg: 120

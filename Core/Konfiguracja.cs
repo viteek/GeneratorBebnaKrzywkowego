@@ -24,8 +24,10 @@ namespace GeneratorBebnaKrzywkowego.Core
 
         public double DlugoscRamieniaMm { get; set; }
         public double OsZawiasuOdGornejKrawedziMm { get; set; }
-        public double KatPoczatkowyRamieniaStopnie { get; set; }
-        public double KatKoncowyRamieniaStopnie { get; set; }
+        // Położenia mechanizmu, niezależne od znaku numerycznej zmiany kąta.
+        // Typowo: zamknięte/dolne = 270°, otwarte/uniesione = 180°.
+        public double KatRamieniaZamknietegoStopnie { get; set; }
+        public double KatRamieniaOtwartegoStopnie { get; set; }
 
         public double WznosStopnie { get; set; }
         public double PostojWysokiStopnie { get; set; }
@@ -64,8 +66,11 @@ namespace GeneratorBebnaKrzywkowego.Core
         public double PrzesuniecieOsiZawiasuZMm =>
             DlugoscBebnaMm / 2.0 - OsZawiasuOdGornejKrawedziMm;
 
+        public double ZmianaKataPrzyWznosieStopnie =>
+            KatRamieniaOtwartegoStopnie - KatRamieniaZamknietegoStopnie;
+
         public double SkokRamieniaStopnie =>
-            KatKoncowyRamieniaStopnie - KatPoczatkowyRamieniaStopnie;
+            Math.Abs(ZmianaKataPrzyWznosieStopnie);
 
         public double PostojNiskiKoncowyStopnie =>
             360.0 - WznosStopnie - PostojWysokiStopnie - PowrotStopnie;
@@ -107,9 +112,17 @@ namespace GeneratorBebnaKrzywkowego.Core
                 throw new InvalidOperationException(
                     "Suma faz krzywki przekracza 360°.");
 
-            if (Math.Abs(SkokRamieniaStopnie) < 1e-9)
+            if (SkokRamieniaStopnie < 1e-9)
                 throw new InvalidOperationException(
-                    "Kąt początkowy i końcowy ramienia nie mogą być takie same.");
+                    "Kąty położenia zamkniętego i otwartego nie mogą być takie same.");
+
+            double zZamkniete = Math.Sin(Jednostki.StopnieDoRadianow(
+                KatRamieniaZamknietegoStopnie));
+            double zOtwarte = Math.Sin(Jednostki.StopnieDoRadianow(
+                KatRamieniaOtwartegoStopnie));
+            if (zOtwarte <= zZamkniete + 1e-9)
+                throw new InvalidOperationException(
+                    "Położenie otwarte musi unosić łożysko wyżej niż położenie zamknięte.");
 
             WymagajNieujemnej(LuzPromieniowyMm, "zaawansowane.luz_promieniowy_mm");
             WymagajNieujemnej(LuzOsiowyMm, "zaawansowane.luz_osiowy_mm");
@@ -143,7 +156,7 @@ namespace GeneratorBebnaKrzywkowego.Core
             s.AppendLine($"Promień osi zawiasu Rp     : {PromienPozornegoOkreguOsiZawiasuMm.ToString("0.###", ci)} mm (= R + r)");
             s.AppendLine($"Średnica okręgu osi zaw.   : {(2.0 * PromienPozornegoOkreguOsiZawiasuMm).ToString("0.###", ci)} mm");
             s.AppendLine($"Oś zawiasu Z [mm]          : {PrzesuniecieOsiZawiasuZMm.ToString("0.###", ci)}");
-            s.AppendLine($"Ruch ramienia [deg]        : {KatPoczatkowyRamieniaStopnie.ToString("0.###", ci)} -> {KatKoncowyRamieniaStopnie.ToString("0.###", ci)}");
+            s.AppendLine($"Wznos: zamknięte -> otwarte: {KatRamieniaZamknietegoStopnie.ToString("0.###", ci)} -> {KatRamieniaOtwartegoStopnie.ToString("0.###", ci)} deg");
             s.AppendLine($"Końcowy niski postój [deg] : {PostojNiskiKoncowyStopnie.ToString("0.###", ci)}");
             s.AppendLine("Oś łożyska przy 180°       : równoległa do osi bębna (+Z)");
             s.AppendLine("Oś łożyska przy 270°       : radialna, w kierunku osi bębna");
