@@ -200,6 +200,7 @@ namespace GeneratorBebnaKrzywkowego.SolidWorks
             if (!SprobujUtworzycSegmentoweLoftCut(
                     profileZamknietejPetli,
                     katyZamknietejPetli,
+                    przesunieciePoSzerokosciMm,
                     nazwa))
                 return false;
 
@@ -210,6 +211,7 @@ namespace GeneratorBebnaKrzywkowego.SolidWorks
         private bool SprobujUtworzycSegmentoweLoftCut(
             IReadOnlyList<Feature> profile,
             IReadOnlyList<double> katyStopnie,
+            double przesunieciePoSzerokosciMm,
             string nazwa)
         {
             if (profile == null || katyStopnie == null ||
@@ -244,7 +246,17 @@ namespace GeneratorBebnaKrzywkowego.SolidWorks
                     "° -> " +
                     katyStopnie[koniec].ToString("0.###", CultureInfo.InvariantCulture) + "°");
 
-                if (!SprobujUtworzycLoftCut(segment, false, nazwaSegmentu))
+                DiagnostykaSegmentu diagnostyka = WypiszDiagnostykeSegmentu(
+                    katyStopnie,
+                    poczatek,
+                    koniec,
+                    przesunieciePoSzerokosciMm);
+
+                if (!SprobujUtworzycLoftCut(
+                        segment,
+                        false,
+                        nazwaSegmentu,
+                        diagnostyka))
                     return false;
 
                 // Wspólny profil sąsiednich segmentów eliminuje szczelinę
@@ -432,16 +444,24 @@ namespace GeneratorBebnaKrzywkowego.SolidWorks
         private bool SprobujUtworzycLoftCut(
             IReadOnlyList<Feature> profileSzkicow,
             bool zamkniety,
-            string nazwa)
+            string nazwa,
+            DiagnostykaSegmentu diagnostykaSegmentu = null)
         {
             if (profileSzkicow == null || profileSzkicow.Count < 2)
                 return false;
 
             Model.ClearSelection2(true);
 
-            if (!ZaznaczProfileSzkicow(profileSzkicow))
+            bool zaznaczonoWszystkie = ZaznaczProfileSzkicow(profileSzkicow);
+            int liczbaZaznaczen = WypiszDiagnostykeZaznaczenia(profileSzkicow.Count);
+
+            if (!zaznaczonoWszystkie || liczbaZaznaczen != profileSzkicow.Count)
             {
-                Console.WriteLine("    Nie udało się zaznaczyć wszystkich profili szkiców.");
+                Console.WriteLine(
+                    "    BŁĄD SELEKCJI: oczekiwano " + profileSzkicow.Count +
+                    " profili z markerem 1, rzeczywiście zaznaczono " +
+                    liczbaZaznaczen + ".");
+                Model.ClearSelection2(true);
                 return false;
             }
 
@@ -466,14 +486,20 @@ namespace GeneratorBebnaKrzywkowego.SolidWorks
                 false,
                 true);
 
-            Model.ClearSelection2(true);
-
             if (feature == null)
             {
                 Console.WriteLine(
                     "    IFeatureManager.InsertCutBlend zwróciło null dla: " + nazwa);
+
+                // InsertCutBlend potrafi zwrócić null bez wyczyszczenia listy
+                // wyboru. Zachowujemy ją aż do zebrania pełnej diagnostyki.
+                WypiszDiagnostykeZaznaczenia(profileSzkicow.Count);
+                WypiszPrzyczyneOdrzucenia(diagnostykaSegmentu);
+                Model.ClearSelection2(true);
                 return false;
             }
+
+            Model.ClearSelection2(true);
 
             Console.WriteLine(
                 "    InsertCutBlend utworzył operację: " + feature.Name);
@@ -492,7 +518,6 @@ namespace GeneratorBebnaKrzywkowego.SolidWorks
             {
                 if (profil == null)
                 {
-                    Model.ClearSelection2(true);
                     return false;
                 }
 
@@ -516,7 +541,6 @@ namespace GeneratorBebnaKrzywkowego.SolidWorks
                     Console.WriteLine(
                         "    SelectByID2 nie zaznaczył profilu: " + nazwa);
 
-                    Model.ClearSelection2(true);
                     return false;
                 }
 
@@ -524,6 +548,171 @@ namespace GeneratorBebnaKrzywkowego.SolidWorks
             }
 
             return true;
+        }
+
+        private int WypiszDiagnostykeZaznaczenia(int oczekiwanaLiczba)
+        {
+            SelectionMgr selectionManager = Model.SelectionManager as SelectionMgr;
+            if (selectionManager == null)
+            {
+                Console.WriteLine("    BŁĄD SELEKCJI: SelectionManager jest niedostępny.");
+                return 0;
+            }
+
+            int liczba = selectionManager.GetSelectedObjectCount2(1);
+            Console.WriteLine(
+                "    SelectionManager: marker=1, rzeczywista liczba zaznaczeń=" +
+                liczba + ", oczekiwano=" + oczekiwanaLiczba + ".");
+
+            for (int i = 1; i <= liczba; i++)
+            {
+                int typApi = selectionManager.GetSelectedObjectType3(i, 1);
+                object zaznaczony = selectionManager.GetSelectedObject6(i, 1);
+                string typRuntime = zaznaczony == null
+                    ? "null"
+                    : zaznaczony.GetType().FullName;
+
+                Console.WriteLine(
+                    "      Zaznaczenie " + i + ": typ API=" + typApi +
+                    ", typ obiektu=" + typRuntime + ".");
+            }
+
+            return liczba;
+        }
+
+        private DiagnostykaSegmentu WypiszDiagnostykeSegmentu(
+            IReadOnlyList<double> katyStopnie,
+            int poczatek,
+            int koniec,
+            double przesunieciePoSzerokosciMm)
+        {
+            var diagnostyka = new DiagnostykaSegmentu
+            {
+                MinimalnaOdlegloscMm = double.PositiveInfinity,
+                MaksymalnaOdlegloscMm = double.NegativeInfinity
+            };
+
+            Console.WriteLine(
+                "      Kąt pierwszego profilu=" + Formatuj(katyStopnie[poczatek]) +
+                "°, ostatniego=" + Formatuj(katyStopnie[koniec]) + "°.");
+
+            for (int i = poczatek; i <= koniec; i++)
+            {
+                DiagnostykaProfilu profil = ObliczDiagnostykeProfilu(
+                    katyStopnie[i],
+                    przesunieciePoSzerokosciMm);
+
+                diagnostyka.MinimalnaOdlegloscMm = Math.Min(
+                    diagnostyka.MinimalnaOdlegloscMm,
+                    profil.MinimalnaOdlegloscMm);
+                diagnostyka.MaksymalnaOdlegloscMm = Math.Max(
+                    diagnostyka.MaksymalnaOdlegloscMm,
+                    profil.MaksymalnaOdlegloscMm);
+
+                if (i == poczatek || i == koniec)
+                {
+                    Console.WriteLine(
+                        "      Profil " + (i == poczatek ? "pierwszy" : "ostatni") +
+                        ": środek=" + Formatuj(profil.SrodekMm) +
+                        " mm, normalna=" + Formatuj(profil.Normalna) +
+                        ", odległość od osi min~" +
+                        Formatuj(profil.MinimalnaOdlegloscMm) + " mm, max~" +
+                        Formatuj(profil.MaksymalnaOdlegloscMm) + " mm.");
+                }
+            }
+
+            double promien = _k.PromienBebnaMm;
+            diagnostyka.MozePrzeciacWalec =
+                diagnostyka.MinimalnaOdlegloscMm <= promien + 1e-6 &&
+                diagnostyka.MaksymalnaOdlegloscMm >= promien - 1e-6;
+
+            Console.WriteLine(
+                "      Obwiednia segmentu: odległość od osi min~" +
+                Formatuj(diagnostyka.MinimalnaOdlegloscMm) + " mm, max~" +
+                Formatuj(diagnostyka.MaksymalnaOdlegloscMm) +
+                " mm; może przeciąć walec R=" + Formatuj(promien) + " mm: " +
+                (diagnostyka.MozePrzeciacWalec ? "TAK" : "NIE") + ".");
+
+            return diagnostyka;
+        }
+
+        private DiagnostykaProfilu ObliczDiagnostykeProfilu(
+            double katStopnie,
+            double przesunieciePoSzerokosciMm)
+        {
+            PozycjaLozyska pozycja = _kin.Oblicz(katStopnie);
+            Wektor3 srodek = pozycja.SrodekLozyskaMm +
+                pozycja.KierunekOsiLozyska * przesunieciePoSzerokosciMm;
+            Wektor3 x = pozycja.KierunekRamienia.Znormalizowany();
+            Wektor3 y = -pozycja.KierunekOsiZawiasu.Znormalizowany();
+            double r = _k.PromienProfiluNarzedziaMm;
+            double min = double.PositiveInfinity;
+            double max = double.NegativeInfinity;
+
+            // Próbkowanie obwodu daje czytelną, niezależną od COM diagnostykę
+            // szacunkową także dla profili nachylonych względem osi bębna.
+            const int liczbaProbek = 360;
+            for (int i = 0; i < liczbaProbek; i++)
+            {
+                double alfa = 2.0 * Math.PI * i / liczbaProbek;
+                Wektor3 punkt = srodek +
+                    x * (r * Math.Cos(alfa)) + y * (r * Math.Sin(alfa));
+                double odleglosc = Math.Sqrt(punkt.X * punkt.X + punkt.Y * punkt.Y);
+                min = Math.Min(min, odleglosc);
+                max = Math.Max(max, odleglosc);
+            }
+
+            return new DiagnostykaProfilu
+            {
+                SrodekMm = srodek,
+                Normalna = pozycja.KierunekOsiLozyska.Znormalizowany(),
+                MinimalnaOdlegloscMm = min,
+                MaksymalnaOdlegloscMm = max
+            };
+        }
+
+        private void WypiszPrzyczyneOdrzucenia(DiagnostykaSegmentu diagnostyka)
+        {
+            if (diagnostyka == null)
+            {
+                Console.WriteLine("    ODRZUCENIE OPERACJI: loft nie został przyjęty.");
+            }
+            else if (diagnostyka.MaksymalnaOdlegloscMm < _k.PromienBebnaMm)
+            {
+                Console.WriteLine("    SEGMENT CAŁKOWICIE WEWNĘTRZNY względem walca bazowego.");
+            }
+            else if (diagnostyka.MinimalnaOdlegloscMm > _k.PromienBebnaMm)
+            {
+                Console.WriteLine("    SEGMENT CAŁKOWICIE ZEWNĘTRZNY względem walca bazowego.");
+            }
+            else
+            {
+                Console.WriteLine(
+                    "    ODRZUCENIE OPERACJI MIMO PRZECIĘCIA BRYŁY: " +
+                    "segment obejmuje promień walca bazowego.");
+            }
+        }
+
+        private static string Formatuj(double wartosc) =>
+            wartosc.ToString("0.###", CultureInfo.InvariantCulture);
+
+        private static string Formatuj(Wektor3 wektor) =>
+            "(" + Formatuj(wektor.X) + ", " + Formatuj(wektor.Y) + ", " +
+            Formatuj(wektor.Z) + ")";
+
+        private sealed class DiagnostykaProfilu
+        {
+            public Wektor3 SrodekMm { get; set; }
+            public Wektor3 Normalna { get; set; }
+            public double MinimalnaOdlegloscMm { get; set; }
+            public double MaksymalnaOdlegloscMm { get; set; }
+        }
+
+        private sealed class DiagnostykaSegmentu
+        {
+            public double MinimalnaOdlegloscMm { get; set; }
+            public double MaksymalnaOdlegloscMm { get; set; }
+            public bool MozePrzeciacWalec { get; set; }
         }
 
         private bool UtworzOtworCentralnyLoftem()
