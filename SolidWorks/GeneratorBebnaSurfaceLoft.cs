@@ -28,6 +28,7 @@ namespace GeneratorBebnaKrzywkowego.SolidWorks
     public sealed class GeneratorBebnaSurfaceLoft
     {
         private const double MmNaM = 0.001;
+        private const double MaksymalnyZakresLoftuSegmentowegoStopnie = 45.0;
 
         private readonly SesjaSolidWorks _sesja;
         private readonly KonfiguracjaGeneratora _k;
@@ -172,7 +173,86 @@ namespace GeneratorBebnaKrzywkowego.SolidWorks
                 "    Utworzono " + profile.Count +
                 " osobnych szkiców 3D; wybór profili jako SKETCH, mark=1.");
 
-            return SprobujUtworzycLoftCut(profile, true, nazwa);
+            if (SprobujUtworzycLoftCut(profile, true, nazwa))
+                return true;
+
+            // Nie wszystkie wersje SOLIDWORKS potrafią utworzyć zamknięty
+            // Lofted Cut, którego przekroje obchodzą pełne 360 stopni i
+            // jednocześnie zmieniają orientację. InsertCutBlend zwraca wtedy
+            // null mimo prawidłowej selekcji szkiców. Dzielimy więc dokładnie
+            // tę samą obwiednię na zachodzące na siebie, otwarte odcinki.
+            // Nadal są to wyłącznie natywne Lofted Cut - bez brył narzędziowych
+            // i bez operacji Boolean.
+            Console.WriteLine(
+                "    Zamknięty loft nie został przyjęty; próba segmentowych " +
+                "Lofted Cut (bez Booleanów).");
+
+            Feature profilDomykajacy = UtworzProfileWOddzielnychSzkicach3D(
+                przesunieciePoSzerokosciMm,
+                nazwa + "_DOMKNIECIE",
+                new[] { 360.0 }).Single();
+
+            var profileZamknietejPetli = profile.Concat(
+                new[] { profilDomykajacy }).ToList();
+            var katyZamknietejPetli = _plan.KatyProgramoweStopnie.Concat(
+                new[] { 360.0 }).ToList();
+
+            if (!SprobujUtworzycSegmentoweLoftCut(
+                    profileZamknietejPetli,
+                    katyZamknietejPetli,
+                    nazwa))
+                return false;
+
+            uzytoFallbacku = true;
+            return true;
+        }
+
+        private bool SprobujUtworzycSegmentoweLoftCut(
+            IReadOnlyList<Feature> profile,
+            IReadOnlyList<double> katyStopnie,
+            string nazwa)
+        {
+            if (profile == null || katyStopnie == null ||
+                profile.Count != katyStopnie.Count || profile.Count < 2)
+                return false;
+
+            int poczatek = 0;
+            int numerSegmentu = 0;
+
+            while (poczatek < profile.Count - 1)
+            {
+                int koniec = poczatek + 1;
+                while (koniec + 1 < profile.Count &&
+                       katyStopnie[koniec + 1] - katyStopnie[poczatek] <=
+                       MaksymalnyZakresLoftuSegmentowegoStopnie + 1e-9)
+                {
+                    koniec++;
+                }
+
+                numerSegmentu++;
+                List<Feature> segment = profile
+                    .Skip(poczatek)
+                    .Take(koniec - poczatek + 1)
+                    .ToList();
+
+                string nazwaSegmentu = nazwa + "_SEGMENT_" +
+                    numerSegmentu.ToString("00");
+
+                Console.WriteLine(
+                    "    Segment " + numerSegmentu + ": " +
+                    katyStopnie[poczatek].ToString("0.###", CultureInfo.InvariantCulture) +
+                    "° -> " +
+                    katyStopnie[koniec].ToString("0.###", CultureInfo.InvariantCulture) + "°");
+
+                if (!SprobujUtworzycLoftCut(segment, false, nazwaSegmentu))
+                    return false;
+
+                // Wspólny profil sąsiednich segmentów eliminuje szczelinę
+                // na granicy dwóch operacji.
+                poczatek = koniec;
+            }
+
+            return true;
         }
 
         /*
@@ -229,14 +309,15 @@ namespace GeneratorBebnaKrzywkowego.SolidWorks
 
         private List<Feature> UtworzProfileWOddzielnychSzkicach3D(
             double przesunieciePoSzerokosciMm,
-            string prefiksNazwy)
+            string prefiksNazwy,
+            IEnumerable<double> katyStopnie = null)
         {
             SketchManager skMgr = Model.SketchManager;
             var profile = new List<Feature>();
 
             int indeks = 0;
 
-            foreach (double phi in _plan.KatyProgramoweStopnie)
+            foreach (double phi in katyStopnie ?? _plan.KatyProgramoweStopnie)
             {
                 indeks++;
 
