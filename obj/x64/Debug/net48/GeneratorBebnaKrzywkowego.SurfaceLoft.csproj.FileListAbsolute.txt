@@ -1,0 +1,5 @@
+C:\Users\michal.wiktorowicz\Desktop\GeneratorBebnaKrzywkowego_SurfaceLoft_v5.1.1\GeneratorBebnaKrzywkowego_SurfaceLoft_v5.1.1\obj\x64\Debug\net48\GeneratorBebnaKrzywkowego.SurfaceLoft.csproj.AssemblyReference.cache
+C:\Users\michal.wiktorowicz\Desktop\GeneratorBebnaKrzywkowego_SurfaceLoft_v5.1.1\GeneratorBebnaKrzywkowego_SurfaceLoft_v5.1.1\obj\x64\Debug\net48\GeneratorBebnaKrzywkowego.SurfaceLoft.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\michal.wiktorowicz\Desktop\GeneratorBebnaKrzywkowego_SurfaceLoft_v5.1.1\GeneratorBebnaKrzywkowego_SurfaceLoft_v5.1.1\obj\x64\Debug\net48\GeneratorBebnaKrzywkowego.SurfaceLoft.AssemblyInfoInputs.cache
+C:\Users\michal.wiktorowicz\Desktop\GeneratorBebnaKrzywkowego_SurfaceLoft_v5.1.1\GeneratorBebnaKrzywkowego_SurfaceLoft_v5.1.1\obj\x64\Debug\net48\GeneratorBebnaKrzywkowego.SurfaceLoft.AssemblyInfo.cs
+C:\Users\michal.wiktorowicz\Desktop\GeneratorBebnaKrzywkowego_SurfaceLoft_v5.1.1\GeneratorBebnaKrzywkowego_SurfaceLoft_v5.1.1\obj\x64\Debug\net48\GeneratorBebnaKrzywkowego.SurfaceLoft.csproj.CoreCompileInputs.cache

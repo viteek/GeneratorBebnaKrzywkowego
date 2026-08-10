@@ -1,0 +1,46 @@
+# =============================================================================
+# Generator bębna krzywkowego Surface-Loft v5
+# Wariant z opcjonalnymi ustawieniami loftu.
+# =============================================================================
+
+wersja_formatu: 2
+
+bęben:
+  średnica_zewnętrzna_mm: 156
+  średnica_otworu_mm: 53
+  długość_mm: 70
+
+łożysko:
+  średnica_zewnętrzna_mm: 30
+  szerokość_mm: 9
+
+ramię:
+  długość_mm: 46.4
+  oś_zawiasu_od_górnej_krawędzi_mm: 19.1
+  kąt_początkowy_deg: 180
+  kąt_końcowy_deg: 270
+
+krzywka:
+  wznos_deg: 120
+  postój_wysoki_deg: 60
+  powrót_deg: 120
+
+zaawansowane:
+  luz_promieniowy_mm: 0.1
+  luz_osiowy_mm: 0.1
+
+  prawo_ruchu: wielomian_3_4_5
+  kierunek_obrotu: dodatni
+
+  # To są parametry INTERPOLACJI POWIERZCHNI LOFTOWANEJ,
+  # a nie krok kolejnych Booleanów.
+  maksymalny_krok_profili_deg: 7.5
+  maksymalna_zmiana_ramienia_na_profil_deg: 5.0
+
+  # Steruje liczbą stacji t wzdłuż szerokości łożyska.
+  # Dla Ø30.2 narzędzia i szerokości 9.2 mm wartość 0.02 mm
+  # daje typowo około 7 stacji.
+  tolerancja_szerokosci_mm: 0.02
+
+  preferuj_zwarty_szkic_3d: false  # v5.1.1: parametr zachowany tylko dla zgodności
+  pokaz_profile_po_wygenerowaniu: false

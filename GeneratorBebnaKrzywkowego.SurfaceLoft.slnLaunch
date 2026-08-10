@@ -1,0 +1,11 @@
+[
+  {
+    "Name": "Generator bębna krzywkowego",
+    "Projects": [
+      {
+        "Path": "GeneratorBebnaKrzywkowego.SurfaceLoft.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

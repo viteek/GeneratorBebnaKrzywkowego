@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <Platforms>x64</Platforms>
+    <Configurations>Debug;Release</Configurations>
+    <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+    <StartAction>Project</StartAction>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>GeneratorBebnaKrzywkowego</RootNamespace>
+    <AssemblyName>GeneratorBebnaKrzywkowego.SurfaceLoft</AssemblyName>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="SolidWorks.Interop.sldworks">
+      <HintPath>lib\SolidWorks.Interop.sldworks.dll</HintPath>
+      <Private>true</Private>
+      <EmbedInteropTypes>false</EmbedInteropTypes>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="PrzygotujSolidWorksInterop"
+          BeforeTargets="ResolveReferences"
+          Condition="!Exists('$(MSBuildProjectDirectory)\lib\SolidWorks.Interop.sldworks.dll')">
+    <Message Importance="high"
+             Text="Lokalna biblioteka SOLIDWORKS Interop nie istnieje — uruchamiam automatyczne wykrywanie instalacji." />
+    <Exec Command='powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(MSBuildProjectDirectory)\scripts\Przygotuj-SolidWorks-Interop.ps1"' />
+    <Error Condition="!Exists('$(MSBuildProjectDirectory)\lib\SolidWorks.Interop.sldworks.dll')"
+           Text="Nie znaleziono SolidWorks.Interop.sldworks.dll. Uruchom scripts\Przygotuj-SolidWorks-Interop.ps1 ręcznie i sprawdź komunikat." />
+  </Target>
+</Project>

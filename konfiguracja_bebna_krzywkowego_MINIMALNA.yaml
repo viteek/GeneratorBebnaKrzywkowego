@@ -1,0 +1,27 @@
+# =============================================================================
+# Generator bębna krzywkowego Surface-Loft v5
+# Minimalny YAML — tylko rzeczywiste dane konstrukcyjne.
+# Jednostki: mm i stopnie.
+# =============================================================================
+
+wersja_formatu: 2
+
+bęben:
+  średnica_zewnętrzna_mm: 156
+  średnica_otworu_mm: 53
+  długość_mm: 70
+
+łożysko:
+  średnica_zewnętrzna_mm: 30
+  szerokość_mm: 9
+
+ramię:
+  długość_mm: 46.4
+  oś_zawiasu_od_górnej_krawędzi_mm: 19.1
+  kąt_początkowy_deg: 180
+  kąt_końcowy_deg: 270
+
+krzywka:
+  wznos_deg: 120
+  postój_wysoki_deg: 60
+  powrót_deg: 120
