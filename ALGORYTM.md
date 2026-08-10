@@ -23,17 +23,29 @@ Dla kąta bębna `θ`:
 - `a = cos(α)·er + sin(α)·Z`,
 - `C = P + L·a`.
 
-Oś łożyska jest równoległa do `et`, zgodnie z rzeczywistym mechanizmem.
+Współrzędna osiowa środka wynosi `Z(C) = z_zawiasu + L·sin(α)`.
 
-Dla stacji szerokości `t`:
+Położenie zamknięte/dolne przyjmujemy jako `α_z = 270°`, a położenie
+otwarte/uniesione jako `α_o = 180°`. „Wznos” opisuje wzrost `Z(C)`, mimo że
+w tym przykładzie wartość kąta maleje. Dla postępu `s(u)` prawa ruchu:
 
-`C_t = C + t·et`.
+- wznos: `α(u) = α_z + (α_o-α_z)·s(u)` — łożysko jest unoszone,
+- postój wysoki: `α(u) = α_o` — maksymalna wysokość jest stała,
+- powrót: `α(u) = α_o + (α_z-α_o)·s(u)` — łożysko jest opuszczane,
+- postój niski: `α(u) = α_z`.
+
+Oś łożyska `u(α)` obraca się wraz z ramieniem (pełne równanie poniżej).
+
+Podane niżej `u` oznacza kierunek osi łożyska, nie postęp fazy. Dla stacji
+szerokości `t`:
+
+`C_t = C + t·u(α)`.
 
 W punkcie `C_t` tworzony jest profil kołowy o promieniu:
 
 `r_narzędzia = D_łożyska/2 + luz_promieniowy`.
 
-Płaszczyzna profilu ma normalną `et`.
+Płaszczyzna profilu ma normalną `u(α)`.
 
 ## 3. Powierzchnia / loft
 

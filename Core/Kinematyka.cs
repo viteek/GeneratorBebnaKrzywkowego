@@ -106,31 +106,33 @@ namespace GeneratorBebnaKrzywkowego.Core
         {
             double phi = NormalizujKatProgramowy(katProgramowyStopnie);
 
-            double a0 = 0.0;
             double a1 = _k.WznosStopnie;
             double a2 = a1 + _k.PostojWysokiStopnie;
             double a3 = a2 + _k.PowrotStopnie;
 
-            double start = _k.KatPoczatkowyRamieniaStopnie;
-            double skok = _k.SkokRamieniaStopnie;
-            double koniec = _k.KatKoncowyRamieniaStopnie;
+            // Wznos jest ruchem od położenia zamkniętego do otwartego.
+            // Nie oznacza wzrostu wartości alfa (dla 270° -> 180° alfa maleje,
+            // natomiast Z środka łożyska rośnie).
+            double zamkniete = _k.KatRamieniaZamknietegoStopnie;
+            double otwarte = _k.KatRamieniaOtwartegoStopnie;
+            double zmianaKata = _k.ZmianaKataPrzyWznosieStopnie;
 
             if (phi < a1)
             {
                 double u = phi / _k.WznosStopnie;
-                return start + skok * Postep(u);
+                return zamkniete + zmianaKata * Postep(u);
             }
 
             if (phi < a2)
-                return koniec;
+                return otwarte;
 
             if (phi < a3)
             {
                 double u = (phi - a2) / _k.PowrotStopnie;
-                return koniec - skok * Postep(u);
+                return otwarte - zmianaKata * Postep(u);
             }
 
-            return start;
+            return zamkniete;
         }
 
         public Wektor3 ObliczCentrumProfiluMm(

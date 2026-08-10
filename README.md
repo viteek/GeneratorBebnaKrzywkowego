@@ -87,8 +87,8 @@ bęben:
 ramię:
   długość_mm: 46.4
   oś_zawiasu_od_górnej_krawędzi_mm: 19.1
-  kąt_początkowy_deg: 180
-  kąt_końcowy_deg: 270
+  kąt_zamknięcia_deg: 270 # ramię w dół, najniższe Z łożyska
+  kąt_otwarcia_deg: 180   # łożysko uniesione
 
 krzywka:
   wznos_deg: 120
@@ -103,8 +103,25 @@ Z tego automatycznie wynika m.in.:
 - `Rp = 78 + 15 = 93 mm`,
 - średnica pozornego okręgu osi zawiasu = `186 mm`,
 - `Z_zawiasu = 70/2 - 19.1 = +15.9 mm`,
-- skok ramienia = `270 - 180 = 90°`,
+- skok ramienia = `|180 - 270| = 90°`,
 - końcowy niski postój = `360 - 120 - 60 - 120 = 60°`.
+
+### Znaczenie faz ruchu
+
+„Wznos” oznacza **unoszenie środka łożyska w osi Z**, a nie wzrost
+liczbowej wartości kąta ramienia. Dla powyższej konwencji w fazie wznosu
+`α` interpoluje od `α_zamknięcia = 270°` do `α_otwarcia = 180°`, więc maleje,
+podczas gdy `Z(C)` rośnie. Postój wysoki utrzymuje `α_otwarcia` i maksymalne
+`Z(C)`, a powrót interpoluje z powrotem do `α_zamknięcia` i opuszcza łożysko.
+
+Dla znormalizowanego postępu prawa ruchu `s(u)`, `s(0)=0`, `s(1)=1`:
+
+`α_wznos(u) = α_zamknięcia + (α_otwarcia - α_zamknięcia)·s(u)`
+
+`α_powrót(u) = α_otwarcia + (α_zamknięcia - α_otwarcia)·s(u)`
+
+oraz `Z(C) = Z_zawiasu + L·sin(α)`. W przykładzie daje to odpowiednio
+`Z_zawiasu-L` w zamknięciu i `Z_zawiasu` w otwarciu.
 
 ## Ważne o dokładności
 

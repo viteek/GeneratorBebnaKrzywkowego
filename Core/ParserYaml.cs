@@ -35,8 +35,8 @@ namespace GeneratorBebnaKrzywkowego.Core
 
                 DlugoscRamieniaMm = PobierzDouble(mapa, "ramie.dlugosc_mm"),
                 OsZawiasuOdGornejKrawedziMm = PobierzDouble(mapa, "ramie.os_zawiasu_od_gornej_krawedzi_mm"),
-                KatPoczatkowyRamieniaStopnie = PobierzDouble(mapa, "ramie.kat_poczatkowy_deg"),
-                KatKoncowyRamieniaStopnie = PobierzDouble(mapa, "ramie.kat_koncowy_deg"),
+                KatRamieniaZamknietegoStopnie = PobierzDouble(mapa, "ramie.kat_zamkniecia_deg"),
+                KatRamieniaOtwartegoStopnie = PobierzDouble(mapa, "ramie.kat_otwarcia_deg"),
 
                 WznosStopnie = PobierzDouble(mapa, "krzywka.wznos_deg"),
                 PostojWysokiStopnie = PobierzDouble(mapa, "krzywka.postoj_wysoki_deg"),
@@ -151,8 +151,8 @@ namespace GeneratorBebnaKrzywkowego.Core
 
                 "ramie.dlugosc_mm",
                 "ramie.os_zawiasu_od_gornej_krawedzi_mm",
-                "ramie.kat_poczatkowy_deg",
-                "ramie.kat_koncowy_deg",
+                "ramie.kat_zamkniecia_deg",
+                "ramie.kat_otwarcia_deg",
 
                 "krzywka.wznos_deg",
                 "krzywka.postoj_wysoki_deg",
